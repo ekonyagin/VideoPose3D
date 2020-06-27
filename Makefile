@@ -21,7 +21,8 @@ DETECTRON=$(DEPS_DIR)/detectron
 .PHONY: setup
 setup:
 	echo "wargning: the script will additionally create conda environment with name: $PROJECT"
-	mkdir -p $(DEPS_DIR) $(DATA_DIR) $(RESULTS_DIR) $(CHECKPOINT_DIR) $(INPUT_VIDEOS_DIR) $(OUTPUT_VIDEOS_DIR)
+	mkdir -p $(DEPS_DIR) $(DATA_DIR) $(RESULTS_DIR) $(CHECKPOINT_DIR) \
+			 $(INPUT_VIDEOS_DIR) $(OUTPUT_VIDEOS_DIR) $(RAW_VIDEOS_DIR) $(PREPROCESSED_VIDEOS_DIR)
 
 	conda create -y -n $(PROJECT) python==3.7
 	$(CONDA_ACTIVATE) $(PROJECT)
