@@ -13,7 +13,10 @@ CHECKPOINT_DIR=$(WD)/checkpoint
 
 RAW_VIDEOS_DIR=$(DATA_DIR)/videos/raw
 PREPROCESSED_VIDEOS_DIR=$(DATA_DIR)/videos/preprocessed
-OUTPUT_VIDEOS_DIR=$(RESULTS_DIR)/videos
+OUTPUT_VIDEOS_DIR=$(DATA_DIR)/videos/out
+
+DETECTRON_KEYPOINTS_DIR=$(DATA_DIR)/detectron_keypoints
+3D_KEYPOINTS_DIR=$(DATA_DIR)/3d_keypoints
 
 COCOAPI=$(DEPS_DIR)/cocoapi
 DETECTRON=$(DEPS_DIR)/detectron
@@ -22,7 +25,8 @@ DETECTRON=$(DEPS_DIR)/detectron
 setup:
 	echo "wargning: the script will additionally create conda environment with name: $PROJECT"
 	mkdir -p $(DEPS_DIR) $(DATA_DIR) $(RESULTS_DIR) $(CHECKPOINT_DIR) \
-			 $(INPUT_VIDEOS_DIR) $(OUTPUT_VIDEOS_DIR) $(RAW_VIDEOS_DIR) $(PREPROCESSED_VIDEOS_DIR)
+			 $(INPUT_VIDEOS_DIR) $(OUTPUT_VIDEOS_DIR) $(RAW_VIDEOS_DIR) $(PREPROCESSED_VIDEOS_DIR) \
+			 $(DETECTRON_KEYPOINTS_DIR) $(3D_KEYPOINTS_DIR)
 
 	conda create -y -n $(PROJECT) python==3.7
 	$(CONDA_ACTIVATE) $(PROJECT)
@@ -55,10 +59,10 @@ setup:
 		-O $(CHECKPOINT_DIR)/pretrained_h36m_detectron_coco.bin
 
 
-FORMAT?=MOV
+FORMAT?=mov
 VIDEOS?=$(RAW_VIDEOS_DIR)/*
 CUSTOM_DATASET_NAME?=videos
-ACTION?=output # Can be either output or export
+ACTION?=export # Can be either output or export
 
 .PHONY: preprocess-videos
 preprocess-videos:
@@ -68,11 +72,10 @@ preprocess-videos:
 		--image-ext $(FORMAT) \
 		--wts https://dl.fbaipublicfiles.com/detectron/37698009/12_2017_baselines/e2e_keypoint_rcnn_R-101-FPN_s1x.yaml.08_45_57.YkrJgP6O/output/train/keypoints_coco_2014_train:keypoints_coco_2014_valminusminival/generalized_rcnn/model_final.pkl \
 		$(RAW_VIDEOS_DIR)
+	cd $(DATA_DIR) && python prepare_data_2d_custom.py -i $(PREPROCESSED_VIDEOS_DIR) -o $(CUSTOM_DATASET_NAME)
 
 .PHONY: infer-videos
 infer-videos:
-	cd $(DATA_DIR) && python prepare_data_2d_custom.py -i $(PREPROCESSED_VIDEOS_DIR) -o $(CUSTOM_DATASET_NAME)
-
 	for file in $(VIDEOS); do \
 		output=$(OUTPUT_VIDEOS_DIR)/$$(basename $$file | sed 's/\..[^.]*$$/.mp4/'); \
 		echo Processing $$output...; \
@@ -90,3 +93,15 @@ infer-videos:
 			--viz-$(ACTION) $$output \
 			--viz-subject $$(basename $$file); \
 		done
+
+.PHONY: infer-keypoints
+infer-keypoints:
+	python data/extract_detectron_keypoints.py
+	for file in $$(find $(DETECTRON_KEYPOINTS_DIR) -type f); do \
+		python infer.py \
+			-d $$file \
+			-arc 3,3,3,3,3 \
+			-c checkpoint \
+			--evaluate pretrained_h36m_detectron_coco.bin \
+			--viz-export $(3D_KEYPOINTS_DIR)/$$(basename $$file); \
+	done
